@@ -36,7 +36,7 @@ from PyQt4 import QtCore
 from PyQt4 import QtWebKit
 
 class MainWindow(QtGui.QMainWindow):
-  def __init__(self, parent=None):
+  def __init__(self, parent = None):
     QtGui.QWidget.__init__(self, parent)
 
     # Configure windows
@@ -53,7 +53,7 @@ class MainWindow(QtGui.QMainWindow):
 
 
 class MainWidget(QtGui.QWidget):
-  def __init__(self, parent=None):
+  def __init__(self, parent = None):
     QtGui.QWidget.__init__(self,parent)
     
     # Layout
@@ -66,9 +66,11 @@ class MainWidget(QtGui.QWidget):
 
 
     wLayout.addStretch()
-    searchBox = SearchLineEdit()
-    searchBox.setPlaceholderText("Search torrent file")
-    wLayout.addWidget(searchBox)
+    self.searchBox = SearchLineEdit()
+    self.searchBox.setPlaceholderText("Search torrent file")
+    self.connect(self.searchBox, QtCore.SIGNAL('returnPressed()'), self.searchTorrent)
+    self.connect(self.searchBox.searchButton, QtCore.SIGNAL('clicked()'), self.searchTorrent)
+    wLayout.addWidget(self.searchBox)
 
     self.tabWidget = QtGui.QTabWidget(self)
     vLayout.addWidget(self.tabWidget)
@@ -76,6 +78,19 @@ class MainWidget(QtGui.QWidget):
     self.MainTab = MainTab()
     self.MainTabIndex = self.tabWidget.addTab(self.MainTab, QtGui.QIcon("./img/download.svg"), 'Downloads')
 
+    self.tabWidget.setStyleSheet("QPushButton { border: none;}")
+
+  def searchTorrent(self):
+    SearchTab = SearchTabClass()
+    SearchTabIndex = self.tabWidget.addTab(SearchTab, QtGui.QIcon("./img/search.svg"), 'Search "%s"' % self.searchBox.displayText())
+    self.searchBox.clear()
+    closeButton = QtGui.QPushButton(QtGui.QIcon("./img/close.png"), "")
+    self.tabWidget.tabBar().setTabButton(SearchTabIndex, QtGui.QTabBar.RightSide, closeButton)
+    self.connect(closeButton, QtCore.SIGNAL('clicked()'), lambda: self.RemoveSearchTorrent(SearchTab, SearchTabIndex))
+
+  def RemoveSearchTorrent(self, widget, index):
+    self.tabWidget.removeTab(index)
+    del widget
 
 class MainTab(QtGui.QWidget):
   current_row = 1
@@ -102,6 +117,10 @@ class MainTab(QtGui.QWidget):
     self.current_row += 1
 
 
+class SearchTabClass(QtGui.QWidget):
+  def __init__(self, parent = None):
+    QtGui.QWidget.__init__(self, parent)
+
 class downloadItemClass(QtGui.QWidget):
   def __init__(self, title, size, downloaded, uploaded, download_speed, upload_speed, parent=None):
     QtGui.QWidget.__init__(self, parent)
@@ -121,13 +140,14 @@ class downloadItemClass(QtGui.QWidget):
     return "%d %s" % (size, ["Bit", "Kbi", "Gbi"][i])
 
 class SearchLineEdit(QtGui.QLineEdit):
-  def __init__(self, parent=None):
+  def __init__(self, parent = None):
     QtGui.QLineEdit.__init__(self, parent)
     self.searchButton = QtGui.QToolButton(self)
+    self.searchButton.setCursor(QtGui.QCursor())
     self.searchButton.setIcon(QtGui.QIcon("./img/search.svg"))
     frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth);
+    self.searchButton.setStyleSheet("QToolButton { border: none; padding: 0px;}")
     self.setStyleSheet(QtCore.QString("QLineEdit { padding-right: %1px; } ").arg(self.searchButton.sizeHint().width() + frameWidth + 1));
-    self.searchButton.setStyleSheet("QToolButton { border: none; padding: 0px; margin-left: %dpx;}" % (self.sizeHint().width() + frameWidth + self.searchButton.sizeHint().width() + frameWidth + 10))
 
 
   def resizeEvent(self, event = None):
