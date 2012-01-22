@@ -45,7 +45,7 @@ class MainWindow(QtGui.QMainWindow):
     # Windows icon
     #self.setWindowIcon(QtGui.QIcon(""))
     # Minimum height
-    self.resize(600, 400)
+    self.setMinimumSize(600, 400)
 
     # Central widget
     self.MainWidget = MainWidget(self)
@@ -66,7 +66,7 @@ class MainWidget(QtGui.QWidget):
 
 
     wLayout.addStretch()
-    searchBox = QtGui.QLineEdit()
+    searchBox = SearchLineEdit()
     searchBox.setPlaceholderText("Search torrent file")
     wLayout.addWidget(searchBox)
 
@@ -119,6 +119,21 @@ class downloadItemClass(QtGui.QWidget):
       size /= 1024
       i+= 1
     return "%d %s" % (size, ["Bit", "Kbi", "Gbi"][i])
+
+class SearchLineEdit(QtGui.QLineEdit):
+  def __init__(self, parent=None):
+    QtGui.QLineEdit.__init__(self, parent)
+    self.searchButton = QtGui.QToolButton(self)
+    self.searchButton.setIcon(QtGui.QIcon("./img/search.svg"))
+    frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth);
+    self.setStyleSheet(QtCore.QString("QLineEdit { padding-right: %1px; } ").arg(self.searchButton.sizeHint().width() + frameWidth + 1));
+    self.searchButton.setStyleSheet("QToolButton { border: none; padding: 0px; margin-left: %dpx;}" % (self.sizeHint().width() + frameWidth + self.searchButton.sizeHint().width() + frameWidth + 10))
+
+
+  def resizeEvent(self, event = None):
+    sz = self.searchButton.sizeHint()
+    frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth)
+    self.searchButton.move(self.rect().right() - frameWidth - sz.width(), (self.rect().bottom() + 1 - sz.height())/2)
 
 app = QtGui.QApplication(sys.argv)
 qb = MainWindow()
