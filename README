@@ -1,13 +1,9 @@
-Copyright (c) 2009, 2010 Rafik Mas'ad Nasra.
+Copyright (c) 2011 Rafik Mas'ad Nasra.
 Icon from Tango Desktop Project.
 
 This directory tree have the version 0.1 of Caldo.
 
-Caldo is a free, easy to configurate, easy to use web server. This
-mean that in your own computer you can provide to your friends and
-family, and why not, to the entire world, a web page. In that web you
-can share your music, documents, photos and any type of files as well
-as services like a photo album.
+Caldo is a fast and free BitTorrent search engine and client.
 
 This program can have bugs, if you find one, report it at
 https://github.com/Azag/Caldo or to my e-mail (rmasad [at] gmail.com).
