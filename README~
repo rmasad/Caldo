@@ -1,0 +1,35 @@
+Copyright (c) 2009, 2010 Rafik Mas'ad Nasra.
+Icon from Tango Desktop Project.
+
+This directory tree have the version 0.1 of Caldo.
+
+Caldo is a free, easy to configurate, easy to use web server. This
+mean that in your own computer you can provide to your friends and
+family, and why not, to the entire world, a web page. In that web you
+can share your music, documents, photos and any type of files as well
+as services like a photo album.
+
+This program can have bugs, if you find one, report it at
+https://github.com/Azag/Caldo or to my e-mail (rmasad [at] gmail.com).
+
+If you have any idea to make better Caldo send it to my e-mail
+(rmasad [at] gmail.com).
+
+To install it, the dependency are:
+  * python >= 2.5
+  * python-qt4 (PyQt4)
+
+This file is part of Caldo.
+
+     ShareIt! is free software: you can redistribute it and/or modify
+     it under the terms of the GNU General Public License as published by
+     the Free Software Foundation, either version 3 of the License, or
+     (at your option) any later version.
+
+     ShareIt! is distributed in the hope that it will be useful,
+     but WITHOUT ANY WARRANTY; without even the implied warranty of
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+     GNU General Public License for more details.
+
+     You should have received a copy of the GNU General Public License
+     along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
