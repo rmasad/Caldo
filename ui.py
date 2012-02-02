@@ -35,6 +35,10 @@ from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4 import QtWebKit
 
+# Search in torrent webs lib
+import search
+import utils
+
 class MainWindow(QtGui.QMainWindow):
   def __init__(self, parent = None):
     QtGui.QWidget.__init__(self, parent)
@@ -81,7 +85,7 @@ class MainWidget(QtGui.QWidget):
     self.tabWidget.setStyleSheet("QPushButton { border: none;}")
 
   def searchTorrent(self):
-    SearchTab = SearchTabClass()
+    SearchTab = SearchTabClass(self.searchBox.displayText())
     SearchTabIndex = self.tabWidget.addTab(SearchTab, QtGui.QIcon("./img/search.svg"), 'Search "%s"' % self.searchBox.displayText())
     self.searchBox.clear()
     closeButton = QtGui.QPushButton(QtGui.QIcon("./img/close.png"), "")
@@ -101,7 +105,7 @@ class MainTab(QtGui.QWidget):
     
     self.downloads_list = QtGui.QListWidget()
     vLayout.addWidget(self.downloads_list)
-    self.addDownloadItem("Archivo 1", 1024, 555, 222, 24, 12)
+    self.addDownloadItem("Archivo 1", 1024, 595, 222, 24, 12)
     self.addDownloadItem("Archivo 2", 10224, 555, 2222, 24, 12)
     self.addDownloadItem("Archivo 3", 10224, 5525, 2222, 24, 12)
     self.addDownloadItem("Archivo 14", 1024, 655, 2222, 24, 12)
@@ -118,8 +122,78 @@ class MainTab(QtGui.QWidget):
 
 
 class SearchTabClass(QtGui.QWidget):
-  def __init__(self, parent = None):
+  def __init__(self, text, parent = None):
     QtGui.QWidget.__init__(self, parent)
+    vLayout = QtGui.QVBoxLayout(self)
+    vLayout.addWidget(SearchTable(text))
+
+class SearchTable(QtGui.QTableView):
+  def __init__(self, text, parent = None):
+    self.ascendingIcon = QtGui.QIcon("./img/ascending.png")
+    self.descendingIcon = QtGui.QIcon("./img/descending.png")
+
+    QtGui.QWidget.__init__(self, parent)
+
+    self.results = search.search_in_all_webs(text)
+
+    self.currentColumnSort = None
+    self.setModel(self.makeModel(self.results, 2))
+    self.connect(self.horizontalHeader(),
+                QtCore.SIGNAL('sectionClicked(int)'),
+                self.horizontalHeaderClicked)
+
+    #self.setSortingEnabled(True)
+    self.setCornerButtonEnabled(False)
+    # Hide vertical header (numbers at left side)
+    self.verticalHeader().hide()
+    # Select by rows
+    self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+    # Can't edit items
+    self.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+
+    # Resize columns
+    self.horizontalHeader().setResizeMode(0, 1)
+    for i in range(1, 4):
+      self.resizeColumnToContents(i)
+
+  def horizontalHeaderClicked(self, i):
+    self.setModel(self.makeModel(self.results, i))
+    if self.currentColumnSort:
+      self.resizeColumnToContents(self.currentColumnSort)
+
+  def makeModel(self, results, index):
+    getAttr = [lambda obj: obj.name,
+               lambda obj: obj.size[0]*(1024**obj.size[1]),
+               lambda obj: obj.seed,
+               lambda obj: obj.leach]
+
+    col = len(results.keys())
+
+    ascending = False if index == self.currentColumnSort else True
+    self.currentColumnSort = index if ascending else None
+
+    model = QtGui.QStandardItemModel(col, 4, self)
+    columnHeaderItems = [QtGui.QStandardItem(column) for column in "Name", "Size", "Seeds", "Leachs"]
+    columnHeaderItems[index].setIcon(self.ascendingIcon if ascending else self.descendingIcon)
+    for i in range(4):
+      model.setHorizontalHeaderItem(i, columnHeaderItems[i])
+
+    if results:
+      results = utils.list_to_tree(results.values(), lambda x, y: getAttr[index](x) > getAttr[index](y))
+      if ascending: results = results.postOrder()
+      else: results = results.preOrder()
+    else: results = []
+
+
+    for i in range(col):
+      model.setItem(i, 0, QtGui.QStandardItem(results[i].name))
+      size_tuple = results[i].size
+      size = "%d %s" % (size_tuple[0], ["B", "KiB", "MiB", "GiB"][size_tuple[1]])
+      model.setItem(i, 1, QtGui.QStandardItem(size))
+      model.setItem(i, 2, QtGui.QStandardItem(str(results[i].seed)))
+      model.setItem(i, 3, QtGui.QStandardItem(str(results[i].leach)))
+
+    return model
 
 class downloadItemClass(QtGui.QWidget):
   def __init__(self, title, size, downloaded, uploaded, download_speed, upload_speed, parent=None):
