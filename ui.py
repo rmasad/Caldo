@@ -28,6 +28,7 @@
 ################################################################################
 
 import sys
+import time
 
 # PyQt4
 from PyQt4 import Qt
@@ -38,6 +39,7 @@ from PyQt4 import QtWebKit
 # Search in torrent webs lib
 import search
 import utils
+import download
 
 class MainWindow(QtGui.QMainWindow):
   def __init__(self, parent = None):
@@ -47,7 +49,7 @@ class MainWindow(QtGui.QMainWindow):
     # Title
     self.setWindowTitle('Caldo - Fast and free BitTorrent search engine and client')
     # Windows icon
-    #self.setWindowIcon(QtGui.QIcon(""))
+    self.setWindowIcon(QtGui.QIcon("logo.svg"))
     # Minimum height
     self.setMinimumSize(600, 400)
 
@@ -55,18 +57,25 @@ class MainWindow(QtGui.QMainWindow):
     self.MainWidget = MainWidget(self)
     self.setCentralWidget(self.MainWidget)
 
-
 class MainWidget(QtGui.QWidget):
   def __init__(self, parent = None):
     QtGui.QWidget.__init__(self,parent)
     
+    self.threads = []
+    self.session = download.get_session()
+
     # Layout
     vLayout = QtGui.QVBoxLayout(self)
     wLayout = QtGui.QHBoxLayout()
     vLayout.addLayout(wLayout)
 
-    self.netStatusLabel = QtGui.QLabel(QtCore.QObject().trUtf8("<small>↓ 0 Kb ↑ 0 Kb</small>"))
+    self.netStatusLabel = QtGui.QLabel()
     wLayout.addWidget(self.netStatusLabel)
+    self.updateNetStatusLabel(0, 0)
+
+    self.updateNetStatusLabelThread = updateNetStatusThread(self)
+    self.updateNetStatusLabelThread.start()
+    self.connect(self.updateNetStatusLabelThread, QtCore.SIGNAL('update(int, int)'), self.updateNetStatusLabel)
 
 
     wLayout.addStretch()
@@ -85,16 +94,59 @@ class MainWidget(QtGui.QWidget):
     self.tabWidget.setStyleSheet("QPushButton { border: none;}")
 
   def searchTorrent(self):
-    SearchTab = SearchTabClass(self.searchBox.displayText())
+    SearchTab = SearchTabClass(self.searchBox.displayText().replace(" ", "%20"))
     SearchTabIndex = self.tabWidget.addTab(SearchTab, QtGui.QIcon("./img/search.svg"), 'Search "%s"' % self.searchBox.displayText())
     self.searchBox.clear()
     closeButton = QtGui.QPushButton(QtGui.QIcon("./img/close.png"), "")
     self.tabWidget.tabBar().setTabButton(SearchTabIndex, QtGui.QTabBar.RightSide, closeButton)
     self.connect(closeButton, QtCore.SIGNAL('clicked()'), lambda: self.RemoveSearchTorrent(SearchTab, SearchTabIndex))
+    self.connect(SearchTab.SearchTable, QtCore.SIGNAL('doubleClicked (const QModelIndex)'), lambda index: self.torrentAdd(SearchTab.SearchTable.results_list[index.row()]))
+
+  def torrentAdd(self, torrent):
+    self.threads.append(download.torrentThread(torrent.magnet_link, self.session))
+    self.threads[-1].start()
+    widget = self.MainTab.addDownloadItem(torrent.name, torrent.size[0]*1024**torrent.size[1])
+    self.connect(self.threads[-1], QtCore.SIGNAL('update(int, int, int, int, int)'), widget.update)
 
   def RemoveSearchTorrent(self, widget, index):
     self.tabWidget.removeTab(index)
     del widget
+
+  def updateNetStatusLabel(self, downspeed, upspeed):
+    text = "<small>↓ %s ↑ %s</small>" % (utils.from_bit_to(downspeed), utils.from_bit_to(upspeed))
+    self.netStatusLabel.setText(QtCore.QObject().trUtf8(text))
+
+class updateNetStatusThread(QtCore.QThread):
+  def __init__(self, threads):
+    QtCore.QThread.__init__(self)
+    self.threads = threads
+
+  def run(self):
+    while not time.sleep(1):
+      speed_download = 0
+      speed_upload = 0
+      for thread in self.threads.threads:
+        speed_download += thread.speed_download
+        speed_upload += thread.speed_upload
+
+      self.emit(QtCore.SIGNAL('update(int, int)'),
+                speed_download, speed_upload)
+
+class SearchLineEdit(QtGui.QLineEdit):
+  def __init__(self, parent = None):
+    QtGui.QLineEdit.__init__(self, parent)
+    self.searchButton = QtGui.QToolButton(self)
+    self.searchButton.setCursor(QtGui.QCursor())
+    self.searchButton.setIcon(QtGui.QIcon("./img/search.svg"))
+    frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth);
+    self.searchButton.setStyleSheet("QToolButton { border: none; padding: 0px;}")
+    self.setStyleSheet(QtCore.QString("QLineEdit { padding-right: %1px; } ").arg(self.searchButton.sizeHint().width() + frameWidth + 1));
+
+
+  def resizeEvent(self, event = None):
+    sz = self.searchButton.sizeHint()
+    frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth)
+    self.searchButton.move(self.rect().right() - frameWidth - sz.width(), (self.rect().bottom() + 1 - sz.height())/2)
 
 class MainTab(QtGui.QWidget):
   current_row = 1
@@ -105,27 +157,46 @@ class MainTab(QtGui.QWidget):
     
     self.downloads_list = QtGui.QListWidget()
     vLayout.addWidget(self.downloads_list)
-    self.addDownloadItem("Archivo 1", 1024, 595, 222, 24, 12)
-    self.addDownloadItem("Archivo 2", 10224, 555, 2222, 24, 12)
-    self.addDownloadItem("Archivo 3", 10224, 5525, 2222, 24, 12)
-    self.addDownloadItem("Archivo 14", 1024, 655, 2222, 24, 12)
-    self.addDownloadItem("Archivo 231", 10224, 5525, 1222, 24, 12)
 
-
-  def addDownloadItem(self, title, size, downloaded, uploaded, download_speed, upload_speed):
-    downloadItem = downloadItemClass(title, size, downloaded, uploaded, download_speed, upload_speed)
+  def addDownloadItem(self, title, size):
+    downloadItem = downloadItemClass(title, size)
     item = QtGui.QListWidgetItem("\n\n\n\n")
     item.setIcon(QtGui.QIcon("./img/download.png"))
     self.downloads_list.insertItem(self.current_row, item)
     self.downloads_list.setItemWidget(item, downloadItem)
     self.current_row += 1
+    return downloadItem
 
+class downloadItemClass(QtGui.QWidget):
+  states = ['queued', 'checking', 'downloading metadata',
+            'downloading', 'finished', 'seeding', 'allocating']
+  def __init__(self, title, size, parent=None):
+    QtGui.QWidget.__init__(self, parent)
+    vLayout = QtGui.QVBoxLayout(self)
+    vLayout.addWidget(QtGui.QLabel("<b>%s</b>" % title))
+
+    self.progressLabel = QtGui.QLabel("") 
+    vLayout.addWidget(self.progressLabel)
+
+    self.downloadedBar = QtGui.QProgressBar()
+    vLayout.addWidget(self.downloadedBar)
+
+    self.speedLabel = QtGui.QLabel()
+    vLayout.addWidget(self.speedLabel)
+    self.update(size)
+
+  def update(self, size, downloaded = 0, uploaded = 0, download_speed = 0, upload_speed = 0):
+    ratio = 0 if downloaded == 0 else float(uploaded)/downloaded
+    self.progressLabel.setText("%s/%s, uploaded %s (Ratio %0.1f)" % (utils.from_bit_to(downloaded), utils.from_bit_to(size), utils.from_bit_to(uploaded), ratio))
+    self.downloadedBar.setValue(100*downloaded/size)
+    self.speedLabel.setText(QtCore.QObject().trUtf8("↓ %s ↑ %s" % (utils.from_bit_to(download_speed), utils.from_bit_to(upload_speed))))
 
 class SearchTabClass(QtGui.QWidget):
   def __init__(self, text, parent = None):
     QtGui.QWidget.__init__(self, parent)
     vLayout = QtGui.QVBoxLayout(self)
-    vLayout.addWidget(SearchTable(text))
+    self.SearchTable = SearchTable(text)
+    vLayout.addWidget(self.SearchTable)
 
 class SearchTable(QtGui.QTableView):
   def __init__(self, text, parent = None):
@@ -135,9 +206,10 @@ class SearchTable(QtGui.QTableView):
     QtGui.QWidget.__init__(self, parent)
 
     self.results = search.search_in_all_webs(text)
+    self.results_list = self.results.values()
 
     self.currentColumnSort = None
-    self.setModel(self.makeModel(self.results, 2))
+    self.setModel(self.makeModel(self.results_list, 2))
     self.connect(self.horizontalHeader(),
                 QtCore.SIGNAL('sectionClicked(int)'),
                 self.horizontalHeaderClicked)
@@ -157,7 +229,7 @@ class SearchTable(QtGui.QTableView):
       self.resizeColumnToContents(i)
 
   def horizontalHeaderClicked(self, i):
-    self.setModel(self.makeModel(self.results, i))
+    self.setModel(self.makeModel(self.results_list, i))
     if self.currentColumnSort:
       self.resizeColumnToContents(self.currentColumnSort)
 
@@ -167,7 +239,7 @@ class SearchTable(QtGui.QTableView):
                lambda obj: obj.seed,
                lambda obj: obj.leach]
 
-    col = len(results.keys())
+    col = len(results)
 
     ascending = False if index == self.currentColumnSort else True
     self.currentColumnSort = index if ascending else None
@@ -179,55 +251,20 @@ class SearchTable(QtGui.QTableView):
       model.setHorizontalHeaderItem(i, columnHeaderItems[i])
 
     if results:
-      results = utils.list_to_tree(results.values(), lambda x, y: getAttr[index](x) > getAttr[index](y))
+      results = utils.list_to_tree(results, lambda x, y: getAttr[index](x) > getAttr[index](y))
       if ascending: results = results.postOrder()
       else: results = results.preOrder()
-    else: results = []
-
+      self.results_list = results
 
     for i in range(col):
       model.setItem(i, 0, QtGui.QStandardItem(results[i].name))
       size_tuple = results[i].size
-      size = "%d %s" % (size_tuple[0], ["B", "KiB", "MiB", "GiB"][size_tuple[1]])
+      size = utils.from_bit_to(size_tuple[0]*1024**size_tuple[1])
       model.setItem(i, 1, QtGui.QStandardItem(size))
       model.setItem(i, 2, QtGui.QStandardItem(str(results[i].seed)))
       model.setItem(i, 3, QtGui.QStandardItem(str(results[i].leach)))
 
     return model
-
-class downloadItemClass(QtGui.QWidget):
-  def __init__(self, title, size, downloaded, uploaded, download_speed, upload_speed, parent=None):
-    QtGui.QWidget.__init__(self, parent)
-    vLayout = QtGui.QVBoxLayout(self)
-    vLayout.addWidget(QtGui.QLabel("<b>%s</b>" % title))
-    vLayout.addWidget(QtGui.QLabel("%s/%s, uploaded %s (Range %0.1f)" % (self.from_bit_to(downloaded), self.from_bit_to(size), self.from_bit_to(uploaded), float(uploaded)/downloaded)))
-    downloadedBar = QtGui.QProgressBar()
-    downloadedBar.setValue(100*downloaded/size)
-    vLayout.addWidget(downloadedBar)
-    vLayout.addWidget(QtGui.QLabel(QtCore.QObject().trUtf8("↓ %s ↑ %s" % (self.from_bit_to(download_speed), self.from_bit_to(upload_speed)))))
-
-  def from_bit_to(self, size):
-    i = 0
-    while size > 1024:
-      size /= 1024
-      i+= 1
-    return "%d %s" % (size, ["Bit", "Kbi", "Gbi"][i])
-
-class SearchLineEdit(QtGui.QLineEdit):
-  def __init__(self, parent = None):
-    QtGui.QLineEdit.__init__(self, parent)
-    self.searchButton = QtGui.QToolButton(self)
-    self.searchButton.setCursor(QtGui.QCursor())
-    self.searchButton.setIcon(QtGui.QIcon("./img/search.svg"))
-    frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth);
-    self.searchButton.setStyleSheet("QToolButton { border: none; padding: 0px;}")
-    self.setStyleSheet(QtCore.QString("QLineEdit { padding-right: %1px; } ").arg(self.searchButton.sizeHint().width() + frameWidth + 1));
-
-
-  def resizeEvent(self, event = None):
-    sz = self.searchButton.sizeHint()
-    frameWidth = self.style().pixelMetric(QtGui.QStyle.PM_DefaultFrameWidth)
-    self.searchButton.move(self.rect().right() - frameWidth - sz.width(), (self.rect().bottom() + 1 - sz.height())/2)
 
 app = QtGui.QApplication(sys.argv)
 qb = MainWindow()

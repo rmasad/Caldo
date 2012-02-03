@@ -33,7 +33,7 @@ class Torrent:
     self.magnet_link = None # str
     self.name = None # str
     self.description = None # str
-    self.size = [None, None] # (float, float)
+    self.size = [None, None] # (float, int)
     self.seed = None # int
     self.leech = None # int
 
@@ -52,7 +52,7 @@ class GenericWeb:
     return False
 
 class ThePirateBay(GenericWeb):
-  search_url = "http://thepiratebay.org/search/%s/%s/7/"
+  search_url = "http://thepiratebay.se/search/%s/%s/7/"
   
   def parse(self, search, page):
     url = self.search_url % (search, page)
@@ -72,7 +72,7 @@ class ThePirateBay(GenericWeb):
       if torrentParsed.data.name and torrentParsed.data.ID not in self.torrent_dict.keys():
         self.torrent_dict[torrentParsed.data.ID] = torrentParsed.data
 
-    return False
+    return True
 
 class ThePirateBayParser(HTMLParser.HTMLParser):
   def __init__(self):

@@ -45,3 +45,14 @@ def list_to_tree(values, higher):
   while values:
     Tree.add(values.pop(), higher)
   return Tree
+
+def from_bit_to(size):
+    i = 0
+    while size > 1024:
+      size /= 1024.
+      i+= 1
+    unit = ["Bit", "Kbi", "MBi", "Gbi"][i]
+    if not int(10*(size%1)): return "%d %s" % (int(size), unit)
+    elif not int(10*((10*size)%1)): return "%0.1f %s" % (size, unit)
+    else: return "%0.2f %s" % (size, unit)
+

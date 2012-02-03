@@ -15,7 +15,6 @@ If you have any idea to make better Caldo send it to my e-mail
 To install it, the dependency are:
   * python >= 2.5
   * python-qt4 (PyQt4)
-  * libtorrent (compiled with python binding)
 
 This file is part of Caldo.
 
