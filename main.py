@@ -30,15 +30,16 @@
 import sys
 
 # PyQt4
+from PyQt4.QtCore import SIGNAL
 from PyQt4.QtGui import QApplication
 
 # Caldo Libs
-from utils.download import get_session
+from utils.download import session
 # UI
 from UI.Main import *
 
 if __name__ == "__main__":
-  session = get_session()
+  session = session()
   app = QApplication(sys.argv)
   qb = MainWindow(session)
   qb.show()

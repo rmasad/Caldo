@@ -30,7 +30,7 @@ import HTMLParser
 # QThread
 from PyQt4.QtCore import QThread, SIGNAL
 
-class Torrent:
+class TorrentMetadata:
   def __init__(self):
     self.ID = None # str
     self.magnet_link = None # str
@@ -76,7 +76,7 @@ class ThePirateBay(GenericWeb):
 class ThePirateBayParser(HTMLParser.HTMLParser):
   def __init__(self):
     HTMLParser.HTMLParser.__init__(self)
-    self.data = Torrent()
+    self.data = TorrentMetadata()
     self.tag = None
 
   def handle_starttag(self, tag, attrs):
